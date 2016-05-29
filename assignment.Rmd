@@ -1,0 +1,154 @@
+---
+title: "Practical Machine Learning Assignment"
+author: "FPA"
+date: "Sunday, May 29, 2016"
+output: html_document
+---
+
+```{r, eval=FALSE}
+
+setwd("004_schulungen/2016/05_PracticalMachineLearning/assignment/")
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", "pml-training.csv")
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", "pml-testing.csv")
+
+```
+
+```{r, echo=FALSE}
+trainingDataPristine <- read.csv("pml-training.csv")
+testingDataPristine <- read.csv("pml-testing.csv")
+
+dim(trainingDataPristine)
+#names(trainingDataPristine)
+unique(trainingDataPristine$classe)
+```
+
+The label to train on is a ordinal variable, which correspond to perfect execution (="A") to sloppy (="E").
+
+
+See which user_name trains in which classes.
+
+```{r}
+library(ggplot2)
+qplot(user_name, data=trainingDataPristine, geom="bar", fill=classe)
+```
+
+Ok each person trains in all classes.
+
+
+Remove varibales with no information.
+```{r}
+library(caret)
+nzvIndices <- nearZeroVar(trainingDataPristine)
+trainingData <- trainingDataPristine[,-nzvIndices]
+
+dim(trainingData)
+```
+100 Features left.
+
+
+Now have a look if there are NAs and impute them with kNN.
+```{r}
+indexToImpute <- colSums(is.na(trainingData)) > 0
+
+#install.packages("RANN")
+preObj <- preProcess(trainingData[,-c(2,5,100)], method="knnImpute")
+impTrainingData <- predict(preObj, trainingData[,-c(2,5,100)])
+```
+We exclude the factor variables for user_name and cvtd_timestamp from now on and decide to use only non nominal variables.
+
+
+Exclude highly correlated features.
+```{r}
+corrMat <- cor(impTrainingData)
+corrMat[upper.tri(corrMat)] <- 0
+diag(corrMat) <- 0
+
+highlyCorrCols <- apply(corrMat,2,function(x) any(x > 0.99))
+impTrainingDataSub <- impTrainingData[,!highlyCorrCols]
+dim(impTrainingData)
+dim(impTrainingDataSub)
+```
+Ok removed 5 variables that were highly vorrelated with other ones.
+
+
+Transform the variables with PCA using the first ten principal components. This approach was chosen since most of the varibales excluding "user_name" and "cvtd_timestamp" are metrical.
+```{r}
+preProc <- preProcess(impTrainingDataSub, method="pca", pcaComp = 10)
+trainPC <- predict(preProc, impTrainingDataSub)
+
+
+
+# add label again
+trainPC <- cbind(trainPC, trainingData[,100])
+names(trainPC) <- c(names(trainPC)[1:length(names(trainPC))-1], "classe")
+```
+
+# Train and compare different models:
+
+Use 10 fold cross validation:
+```{r}
+train_control<- trainControl(method="cv", number=10, savePredictions = TRUE)
+```
+
+
+## Stochastic Gradient Boosting
+```{r, cache=TRUE, echo=FALSE}
+gbmModel <- train(classe ~ .
+                 ,trainPC
+                 ,trControl=train_control
+                 ,method = "gbm"
+                 )
+gbmModel$results
+```
+Best model scored accuracy of 0.77.
+
+
+## Linear Discriminant Analysis
+```{r, cache=TRUE, echo=FALSE}
+ldaModel <- train(classe ~ .
+                 ,trainPC
+                 ,trControl=train_control
+                 ,method = "lda"
+                 )
+ldaModel$results
+```
+Model scored accuracy of 0.50.
+
+
+## Random Forest
+```{r, cache=TRUE, echo=FALSE}
+rfModel <- train(classe ~ .
+                 ,trainPC
+                 ,trControl=train_control
+                 ,method = "rf"
+                 )
+rfModel$results
+```
+Model scored accuracy of 0.95.
+
+
+
+# Predict the test cases
+
+Apply same preprocessing steps to the test set as they were applied to the training set
+
+```{r}
+#names(testingDataPristine)
+
+testingData <- testingDataPristine[,-nzvIndices]
+
+impTestingData <- predict(preObj, testingData[,-c(2,5,100)])
+
+ncol(impTestingData)
+testingDataSub <- impTestingData[,!highlyCorrCols]
+ncol(testingDataSub)
+
+#names(testingDataSub)
+testPC <- predict(preProc, testingDataSub)
+```
+
+
+```{r}
+predictions <- predict(rfModel ,testPC)
+predictions
+```
