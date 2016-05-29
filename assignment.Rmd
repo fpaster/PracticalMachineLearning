@@ -5,7 +5,7 @@ date: "Sunday, May 29, 2016"
 output: html_document
 ---
 
-```{r, eval=FALSE}
+```{r, eval=FALSE, echo=FALSE}
 
 setwd("004_schulungen/2016/05_PracticalMachineLearning/assignment/")
 #download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", "pml-training.csv")
@@ -92,7 +92,7 @@ train_control<- trainControl(method="cv", number=10, savePredictions = TRUE)
 
 
 ## Stochastic Gradient Boosting
-```{r, cache=TRUE, echo=FALSE}
+```{r, cache=TRUE, results='hide'}
 gbmModel <- train(classe ~ .
                  ,trainPC
                  ,trControl=train_control
@@ -104,7 +104,7 @@ Best model scored accuracy of 0.77.
 
 
 ## Linear Discriminant Analysis
-```{r, cache=TRUE, echo=FALSE}
+```{r, cache=TRUE, results='hide'}
 ldaModel <- train(classe ~ .
                  ,trainPC
                  ,trControl=train_control
@@ -116,7 +116,7 @@ Model scored accuracy of 0.50.
 
 
 ## Random Forest
-```{r, cache=TRUE, echo=FALSE}
+```{r, cache=TRUE, results='hide'}
 rfModel <- train(classe ~ .
                  ,trainPC
                  ,trControl=train_control
